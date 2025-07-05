@@ -1,24 +1,30 @@
 import sys
 import time
 import random
+import numpy as np
 
-tamanho_populacao = 500
-num_geracoes = 500
+# ======== PARÂMETROS GLOBAIS ======== #
+tamanho_populacao = 100
+num_geracoes = 200
 taxa_mutacao = 0.2
 metodo_selecao = 'torneio'  # 'torneio' ou 'roleta'
 tamanho_torneio = 3
 metodo_cruzamento = 'cx'  # 'cx' ou 'erx'
 metodo_mutacao = 'swap'  # 'swap' ou 'deslocamento'
 elitismo_k = 2
+
+# FSSP
 tempo_processamento = []
 num_jobs = 0
 num_maquinas = 0
 
-#====== ESTATISTICAS ======#
-
-historico_melhor = []
-historico_pior = []
-historico_media = []
+# PSO
+num_particulas = 100
+dist_minima = 5
+num_iteracoes_pso = 100
+w = 0.7
+c1 = 0.8
+c2 = 0.8
 
 
 #====== LEITURA DO ARQUIVO ======#
@@ -222,9 +228,9 @@ def elitismo(populacao, fitnesses, k):
     return elite
 
 
-#====== FUNÇÃO PRINCIPAL ======#
+#====== ALGORITMO GENETICO======#
 
-def algoritmo_genetico_fssp():
+def algoritmo_genetico():
     # Inicializa população com permutações aleatórias de jobs
     populacao = criar_populacao()
 
@@ -240,12 +246,6 @@ def algoritmo_genetico_fssp():
         fitnesses = [1 / m for m in makespans]
 
         melhor = min(makespans)
-        pior = max(makespans)
-        media = sum(makespans) / len(makespans)
-
-        historico_melhor.append(melhor)
-        historico_pior.append(pior)
-        historico_media.append(media)
 
         # === Verifica se houve melhoria ===
         if melhor < melhor_global:
@@ -290,21 +290,145 @@ def algoritmo_genetico_fssp():
     melhor_indice = max(range(len(fitnesses)), key=lambda i: fitnesses[i])
     melhor_solucao = populacao[melhor_indice]
     melhor_makespan = calcular_makespan(tempo_processamento, melhor_solucao)
+    enxame = gerar_enxame(populacao, tempo_processamento, num_particulas, dist_minima)
 
-    return melhor_solucao, melhor_makespan
+
+    return melhor_solucao, melhor_makespan, enxame
+
+
+
+#====== FORMAÇÃO DO ENXAME ======#
+
+class Particula:
+    def __init__(self, permutacao, indice):
+        self.indice = indice
+        self.posicao = permutacao[:]  # permutação dos jobs
+        self.melhor_posicao = permutacao[:]
+        self.melhor_valor = float('inf')
+        self.melhor_vizinha = permutacao[:]  # inicializada com uma cópia
+
+
+
+def distancia_permutacao(p1, p2):
+    return sum(1 for a, b in zip(p1, p2) if a != b)
+
+
+
+def adicionar_ao_enxame(selecionados, candidato, dist_minima):
+    for s in selecionados:
+        if distancia_permutacao(s, candidato) < dist_minima:
+            return False  # Muito próximo de outro
+    selecionados.append(candidato)
+    return True
+
+def gerar_enxame(populacao, tempo_processamento, num_particulas, dist_minima):
+    fitnesses = [(ind, calcular_makespan(tempo_processamento, ind)) for ind in populacao]
+    fitnesses.sort(key=lambda x: x[1])
+
+    enxame = []
+    permutacoes_adicionadas = []
+
+    for ind, _ in fitnesses:
+        if len(enxame) >= num_particulas:
+            break
+        if all(distancia_permutacao(ind, outro) >= dist_minima for outro in permutacoes_adicionadas):
+            particula = Particula(ind, len(enxame))
+            enxame.append(particula)
+            permutacoes_adicionadas.append(ind)
+
+    return enxame
+
+#====== VELOCIDADE ======#
+
+def obter_diferencas(a, b):
+    """Retorna os swaps necessários para transformar a em b."""
+    a = a[:]
+    swaps = []
+    for i in range(len(a)):
+        if a[i] != b[i]:
+            j = a.index(b[i])
+            swaps.append((i, j))
+            a[i], a[j] = a[j], a[i]
+    return swaps
+
+def aplicar_swaps(permutacao, swaps, prob=1.0):
+    permutacao = permutacao[:]
+    for i, j in swaps:
+        if random.random() < prob:
+            permutacao[i], permutacao[j] = permutacao[j], permutacao[i]
+    return permutacao
+
+
+
+
+
+#===== ATUALIZAR PARTICULAS ======#
+
+def atualizar_particula(particula, enxame):
+    vizinhos = []
+    for offset in range(-2, 3):
+        idx = (particula.indice + offset) % len(enxame)
+        vizinhos.append(idx)
+    melhor_vizinha_idx = min(vizinhos, key=lambda i: enxame[i].melhor_valor)
+    particula.melhor_vizinha = enxame[melhor_vizinha_idx].melhor_posicao
+
+    swaps_inercia = []  # w ignorado por enquanto
+    swaps_cognitivo = obter_diferencas(particula.posicao, particula.melhor_posicao)
+    swaps_social = obter_diferencas(particula.posicao, particula.melhor_vizinha)
+
+    nova_posicao = aplicar_swaps(particula.posicao, swaps_cognitivo, prob=c1)
+    nova_posicao = aplicar_swaps(nova_posicao, swaps_social, prob=c2)
+
+    particula.posicao = nova_posicao
+
+
+
+
+#====== PSO ======#
+
+def executar_pso_discreto(enxame, tempo_processamento):
+    melhor_global_valor = float('inf')
+    melhor_global_posicao = None
+
+    for iteracao in range(num_iteracoes_pso):
+        for particula in enxame:
+            valor_atual = calcular_makespan(tempo_processamento, particula.posicao)
+
+            if valor_atual < particula.melhor_valor:
+                particula.melhor_valor = valor_atual
+                particula.melhor_posicao = particula.posicao[:]
+
+            if valor_atual < melhor_global_valor:
+                melhor_global_valor = valor_atual
+                melhor_global_posicao = particula.posicao[:]
+
+        for particula in enxame:
+            atualizar_particula(particula, enxame)
+    
+    return melhor_global_posicao, melhor_global_valor
+
+
+
+
+
+
 
 def main():
-
     inicio = time.perf_counter()
 
-    solucao, makespan = algoritmo_genetico_fssp()
+    solucao, makespan, enxame_inicial = algoritmo_genetico()
+    solucao_pso, makespan_pso = executar_pso_discreto(enxame_inicial, tempo_processamento)
 
     fim = time.perf_counter()
-
+    print("\n--- Genetico ---")
     print("Melhor solução encontrada:", solucao)
     print("Makespan:", makespan)
-    print(f"Tempo de execução: {fim - inicio:.6f} segundos")
     
+    print("\n--- PSO ---")
+    print("Melhor solução encontrada pelo PSO:", solucao_pso)
+    print("Makespan PSO:", makespan_pso)
+
+    print(f"Tempo de execução: {fim - inicio:.6f} segundos")
 
 
 if __name__ == "__main__":
