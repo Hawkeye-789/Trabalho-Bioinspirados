@@ -2,8 +2,8 @@ import sys
 import time
 import random
 
-tamanho_populacao = 50
-num_geracoes = 100
+tamanho_populacao = 500
+num_geracoes = 500
 taxa_mutacao = 0.2
 metodo_selecao = 'torneio'  # 'torneio' ou 'roleta'
 tamanho_torneio = 3
@@ -13,6 +13,13 @@ elitismo_k = 2
 tempo_processamento = []
 num_jobs = 0
 num_maquinas = 0
+
+#====== ESTATISTICAS ======#
+
+historico_melhor = []
+historico_pior = []
+historico_media = []
+
 
 #====== LEITURA DO ARQUIVO ======#
 
@@ -62,7 +69,7 @@ def criar_populacao():
 
 #====== MUTAÇÃO ======#
 
-def mutacao_swap(individuo, taxa_mutacao):#
+def mutacao_swap(individuo, taxa_mutacao):
     #Aplica mutação por troca de duas tarefas aleatórios em um indivíduo,
     #com uma chance dada pela taxa de mutação.
     novo_individuo = individuo[:]
@@ -221,9 +228,37 @@ def algoritmo_genetico_fssp():
     # Inicializa população com permutações aleatórias de jobs
     populacao = criar_populacao()
 
+    melhor_global = float('inf')
+    ultima_melhora = 0
+    taxa_mutacao_atual = taxa_mutacao
+
+
     for geracao in range(num_geracoes):
-        # Avaliar fitness (inverso do makespan)
-        fitnesses = [1 / calcular_makespan(tempo_processamento, ind) for ind in populacao]
+
+        # === Avaliação ===
+        makespans = [calcular_makespan(tempo_processamento, ind) for ind in populacao]
+        fitnesses = [1 / m for m in makespans]
+
+        melhor = min(makespans)
+        pior = max(makespans)
+        media = sum(makespans) / len(makespans)
+
+        historico_melhor.append(melhor)
+        historico_pior.append(pior)
+        historico_media.append(media)
+
+        # === Verifica se houve melhoria ===
+        if melhor < melhor_global:
+            melhor_global = melhor
+            ultima_melhora = geracao
+        else:
+            # Se não melhora há mais de 5 gerações, aumenta mutação
+            if geracao - ultima_melhora > 5:
+                taxa_mutacao_atual = min(1.0, taxa_mutacao_atual * 1.2)
+            else:
+                taxa_mutacao_atual = taxa_mutacao
+
+
 
         # Elitismo: selecionar os k melhores indivíduos
         nova_populacao = elitismo(populacao, fitnesses, elitismo_k)
@@ -239,6 +274,14 @@ def algoritmo_genetico_fssp():
             filho = mutacao_atual(filho, metodo_mutacao, taxa_mutacao)
 
             nova_populacao.append(filho)
+
+            # === Chance de adicionar novos indivíduos aleatórios ===
+            chance_injecao = 0.1  # 10% de chance por geração
+            if random.random() < chance_injecao:
+                num_injetados = random.randint(1, 3)
+                for _ in range(num_injetados):
+                    novo_individuo = random.sample(range(num_jobs), num_jobs)
+                    nova_populacao[random.randint(0, len(nova_populacao)-1)] = novo_individuo
 
         populacao = nova_populacao
 
@@ -261,6 +304,8 @@ def main():
     print("Melhor solução encontrada:", solucao)
     print("Makespan:", makespan)
     print(f"Tempo de execução: {fim - inicio:.6f} segundos")
+    
+
 
 if __name__ == "__main__":
     main()
