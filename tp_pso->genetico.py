@@ -337,7 +337,7 @@ def algoritmo_genetico(populacao_inicial):
         while len(nova_populacao) < tamanho_populacao:
             pai1, pai2 = selecionar_pais(populacao, fitnesses, metodo=metodo_selecao, tamanho_torneio=tamanho_torneio)
             filho = cruzamento_atual(pai1, pai2, metodo_cruzamento)
-            filho = mutacao_atual(filho, metodo_mutacao, taxa_mutacao)
+            filho = mutacao_atual(filho, metodo_mutacao, taxa_mutacao_atual)
             nova_populacao.append(filho)
 
         populacao = nova_populacao

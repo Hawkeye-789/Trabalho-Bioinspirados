@@ -271,7 +271,7 @@ def algoritmo_genetico():
             filho = cruzamento_atual(pai1, pai2, metodo_cruzamento)
 
             # Mutação
-            filho = mutacao_atual(filho, metodo_mutacao, taxa_mutacao)
+            filho = mutacao_atual(filho, metodo_mutacao, taxa_mutacao_atual)
 
             nova_populacao.append(filho)
 
