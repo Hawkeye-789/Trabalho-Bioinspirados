@@ -5,13 +5,13 @@ import numpy as np
 
 # ======== PARÂMETROS GLOBAIS ======== #
 tamanho_populacao = 100
-num_geracoes = 200
+num_geracoes = 100
 taxa_mutacao = 0.2
 metodo_selecao = 'torneio'  # 'torneio' ou 'roleta'
 tamanho_torneio = 3
 metodo_cruzamento = 'cx'  # 'cx' ou 'erx'
 metodo_mutacao = 'swap'  # 'swap' ou 'deslocamento'
-elitismo_k = 2
+elitismo_k = 1
 
 # FSSP
 tempo_processamento = []
@@ -22,9 +22,9 @@ num_maquinas = 0
 num_particulas = 100
 dist_minima = 5
 num_iteracoes_pso = 100
-w = 0.7
-c1 = 0.8
-c2 = 0.8
+w = 0.2
+c1 = 1.0
+c2 = 0.5
 
 
 #====== LEITURA DO ARQUIVO ======#
@@ -306,6 +306,8 @@ class Particula:
         self.melhor_posicao = permutacao[:]
         self.melhor_valor = float('inf')
         self.melhor_vizinha = permutacao[:]  # inicializada com uma cópia
+        self.velocidade = []  # lista de swaps da última iteração
+
 
 
 
@@ -372,13 +374,18 @@ def atualizar_particula(particula, enxame):
     melhor_vizinha_idx = min(vizinhos, key=lambda i: enxame[i].melhor_valor)
     particula.melhor_vizinha = enxame[melhor_vizinha_idx].melhor_posicao
 
-    swaps_inercia = []  # w ignorado por enquanto
+    # === Obter componentes ===
+    swaps_inercia = particula.velocidade[:]  # reutiliza swaps anteriores
     swaps_cognitivo = obter_diferencas(particula.posicao, particula.melhor_posicao)
     swaps_social = obter_diferencas(particula.posicao, particula.melhor_vizinha)
 
-    nova_posicao = aplicar_swaps(particula.posicao, swaps_cognitivo, prob=c1)
+    # === Aplicar os swaps ===
+    nova_posicao = aplicar_swaps(particula.posicao, swaps_inercia, prob=w)
+    nova_posicao = aplicar_swaps(nova_posicao, swaps_cognitivo, prob=c1)
     nova_posicao = aplicar_swaps(nova_posicao, swaps_social, prob=c2)
 
+    # === Atualizar partícula ===
+    particula.velocidade = obter_diferencas(particula.posicao, nova_posicao)
     particula.posicao = nova_posicao
 
 
