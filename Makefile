@@ -3,7 +3,7 @@ TARGET = bee_colony_fssp
 SRC = teste.c
 
 # Arquivo de entrada (ajuste conforme necessário)
-INPUT = fssp_instance_05.txt
+INPUT = fssp_instance_07.txt
 
 # Compilador e flags
 CC = gcc

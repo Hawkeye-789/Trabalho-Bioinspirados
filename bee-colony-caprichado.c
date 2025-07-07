@@ -94,7 +94,7 @@ void busca_local_rvnd(int *solucao, double *valor) {
                     for (int k = i; k > j; k--) temp[k] = temp[k - 1];
                 }
                 temp[j] = job;
-            } else if (idx == 2) { // INVERSÃO
+            } else if (idx == 2) {
                 if (i > j) { int tmp = i; i = j; j = tmp; }
                 while (i < j) {
                     swap(&temp[i], &temp[j]);
@@ -107,11 +107,11 @@ void busca_local_rvnd(int *solucao, double *valor) {
                 copia_seq(solucao, temp);
                 *valor = novo_valor;
                 melhorou = 1;
-                break; // volta para tentar todas vizinhanças novamente
+                break;
             }
         }
 
-        if (!melhorou) break; // nenhuma vizinhança melhorou
+        if (!melhorou) break;
     }
 }
 
@@ -148,13 +148,13 @@ void bee_colony(int n_bees, int max_iter, int limit) {
                 makespans[i] = mk;
                 trial[i] = 0;
 
-                // Hibridização com busca local
+                
                 busca_local_rvnd(food_sources[i], &makespans[i]);
 
                 if (makespans[i] < melhor_makespan) {
                     melhor_makespan = makespans[i];
                     copia_seq(melhor_solucao, food_sources[i]);
-                    iteracoes_sem_melhora = 0; // zera contador
+                    iteracoes_sem_melhora = 0;
                 } else {
                     iteracoes_sem_melhora++;
                 }
@@ -187,17 +187,14 @@ void bee_colony(int n_bees, int max_iter, int limit) {
                 makespans[i] = calcular_makespan(food_sources[i]);
                 trial[i] = 0;
 
-                // opcional: aplica busca local nas novas soluções
-                // busca_local_rvnd(food_sources[i], &makespans[i]);
-
                 if (makespans[i] < melhor_makespan) {
                     melhor_makespan = makespans[i];
                     copia_seq(melhor_solucao, food_sources[i]);
-                    iteracoes_sem_melhora = 0; // reset se melhorar
+                    iteracoes_sem_melhora = 0;
                 }
             }
             printf(">>> Reinicialização executada na iteração %d\n", it);
-            iteracoes_sem_melhora = 0; // zera mesmo que não tenha melhorado
+            iteracoes_sem_melhora = 0;
         }
 
     }
