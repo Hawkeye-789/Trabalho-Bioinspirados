@@ -130,9 +130,14 @@ void bee_colony(int n_bees, int max_iter, int limit) {
 
     #pragma omp parallel for
     for (int i = 0; i < n_bees; i++) {
-        gerar_NEH(food_sources[i]);
-        fisher_yates_shuffle(food_sources[i], num_jobs);
-        makespans[i] = calcular_makespan(food_sources[i]);
+        if (i == 0) {
+            gerar_NEH(food_sources[i]);
+            busca_local(food_sources[i], &makespans[i]);
+        } else {
+            for (int j = 0; j < num_jobs; j++) food_sources[i][j] = j;
+            fisher_yates_shuffle(food_sources[i], num_jobs);
+            makespans[i] = calcular_makespan(food_sources[i]);
+        }
         trial[i] = 0;
         #pragma omp critical
         {
@@ -168,7 +173,7 @@ void bee_colony(int n_bees, int max_iter, int limit) {
         #pragma omp parallel for
         for (int i = 0; i < n_bees; i++) {
             if (trial[i] >= limit) {
-                gerar_vizinho(melhor_solucao, food_sources[i], 5);
+                gerar_vizinho(melhor_solucao, food_sources[i], 10);
                 makespans[i] = calcular_makespan(food_sources[i]);
                 trial[i] = 0;
             }
@@ -221,6 +226,14 @@ int main(int argc, char *argv[]) {
     }
     srand(time(NULL));
     ler_instancia(argv[1]);
+    printf("Instância carregada (%d jobs x %d máquinas):\n", num_jobs, num_machines);
+    for (int i = 0; i < num_jobs; i++) {
+        for (int j = 0; j < num_machines; j++) {
+            printf("%3d ", tempos[i][j]);
+        }
+        printf("\n");
+    }
+
     bee_colony(20, 5000, 100);
     return 0;
 }

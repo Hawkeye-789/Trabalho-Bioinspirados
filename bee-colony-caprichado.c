@@ -138,13 +138,22 @@ void ler_instancia(const char *nome_arquivo) {
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        printf("Uso: %s instancia.txt\\n", argv[0]);
+        printf("Uso: %s instancia.txt\n", argv[0]);
         return 1;
     }
 
     srand(time(NULL));
     ler_instancia(argv[1]);
+
+    clock_t inicio = clock();
+
     bee_colony(20, 5000, 100);
+
+    clock_t fim = clock();
+    double tempo_execucao = (double)(fim - inicio) / CLOCKS_PER_SEC;
+
+    printf("Tempo de execução: %.4f segundos\n", tempo_execucao);
 
     return 0;
 }
+
