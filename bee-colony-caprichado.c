@@ -61,7 +61,63 @@ void copia_seq(int *dest, int *src) {
     memcpy(dest, src, sizeof(int) * num_jobs);
 }
 
+void busca_local_rvnd(int *solucao, double *valor) {
+    int vizinhancas[3] = {0, 1, 2}; // 0: swap, 1: insert, 2: inversao
+    int usada[3];
+    int temp[MAX_JOBS];
+
+    while (1) {
+        for (int i = 0; i < 3; i++) usada[i] = 0;
+        int restantes = 3;
+        int melhorou = 0;
+
+        while (restantes > 0) {
+            int idx;
+            do {
+                idx = rand() % 3;
+            } while (usada[idx]);
+            usada[idx] = 1;
+            restantes--;
+
+            copia_seq(temp, solucao);
+            int i = rand() % num_jobs;
+            int j = rand() % num_jobs;
+            while (j == i) j = rand() % num_jobs;
+
+            if (idx == 0) { // SWAP
+                swap(&temp[i], &temp[j]);
+            } else if (idx == 1) { // INSERT
+                int job = temp[i];
+                if (i < j) {
+                    for (int k = i; k < j; k++) temp[k] = temp[k + 1];
+                } else {
+                    for (int k = i; k > j; k--) temp[k] = temp[k - 1];
+                }
+                temp[j] = job;
+            } else if (idx == 2) { // INVERSÃO
+                if (i > j) { int tmp = i; i = j; j = tmp; }
+                while (i < j) {
+                    swap(&temp[i], &temp[j]);
+                    i++; j--;
+                }
+            }
+
+            double novo_valor = calcular_makespan(temp);
+            if (novo_valor < *valor) {
+                copia_seq(solucao, temp);
+                *valor = novo_valor;
+                melhorou = 1;
+                break; // volta para tentar todas vizinhanças novamente
+            }
+        }
+
+        if (!melhorou) break; // nenhuma vizinhança melhorou
+    }
+}
+
 void bee_colony(int n_bees, int max_iter, int limit) {
+    int iteracoes_sem_melhora = 0;
+    int intervalo_reinicializacao = 300;
     int food_sources[n_bees][MAX_JOBS];
     double makespans[n_bees];
     int trial[n_bees];
@@ -91,10 +147,18 @@ void bee_colony(int n_bees, int max_iter, int limit) {
                 copia_seq(food_sources[i], vizinho);
                 makespans[i] = mk;
                 trial[i] = 0;
-                if (mk < melhor_makespan) {
-                    melhor_makespan = mk;
-                    copia_seq(melhor_solucao, vizinho);
+
+                // Hibridização com busca local
+                busca_local_rvnd(food_sources[i], &makespans[i]);
+
+                if (makespans[i] < melhor_makespan) {
+                    melhor_makespan = makespans[i];
+                    copia_seq(melhor_solucao, food_sources[i]);
+                    iteracoes_sem_melhora = 0; // zera contador
+                } else {
+                    iteracoes_sem_melhora++;
                 }
+
             } else {
                 trial[i]++;
             }
@@ -111,15 +175,41 @@ void bee_colony(int n_bees, int max_iter, int limit) {
                 trial[i] = 0;
             }
         }
+
+        if (iteracoes_sem_melhora >= intervalo_reinicializacao) {
+            int qtd_reinicializar = n_bees / 2;
+            for (int i = 0; i < qtd_reinicializar; i++) {
+                for (int j = 0; j < num_jobs; j++) food_sources[i][j] = j;
+                for (int j = 0; j < num_jobs; j++) {
+                    int k = rand() % num_jobs;
+                    swap(&food_sources[i][j], &food_sources[i][k]);
+                }
+                makespans[i] = calcular_makespan(food_sources[i]);
+                trial[i] = 0;
+
+                // opcional: aplica busca local nas novas soluções
+                // busca_local_rvnd(food_sources[i], &makespans[i]);
+
+                if (makespans[i] < melhor_makespan) {
+                    melhor_makespan = makespans[i];
+                    copia_seq(melhor_solucao, food_sources[i]);
+                    iteracoes_sem_melhora = 0; // reset se melhorar
+                }
+            }
+            printf(">>> Reinicialização executada na iteração %d\n", it);
+            iteracoes_sem_melhora = 0; // zera mesmo que não tenha melhorado
+        }
+
     }
 
-    printf("Melhor makespan: %.2f\\n", melhor_makespan);
+    printf("Melhor makespan: %.2f\n", melhor_makespan);
     printf("Melhor sequência: ");
     for (int i = 0; i < num_jobs; i++) {
         printf("%d ", melhor_solucao[i]);
     }
-    printf("\\n");
+    printf("\n");
 }
+
 
 void ler_instancia(const char *nome_arquivo) {
     FILE *fp = fopen(nome_arquivo, "r");

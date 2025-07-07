@@ -1,6 +1,6 @@
 # Nome do executável e do código fonte
 TARGET = bee_colony_fssp
-SRC = bee-colony-caprichado.c
+SRC = teste.c
 
 # Arquivo de entrada (ajuste conforme necessário)
 INPUT = fssp_instance_05.txt
